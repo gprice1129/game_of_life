@@ -4,7 +4,7 @@
 
 (define (make-living-cell i j) (list i j))
 
-(define (world living-cells) (list->mutable-set living-cells))
+(define (world living-cells) (list->set living-cells))
 
 (define (cell-x cell) (car cell))
 
@@ -39,15 +39,13 @@
           [else (update-new-world (cdr cells) new-world)]))
   (world (update-from (set->list old-world) '())))
 
-(define (init-world num-start-cells)
-  (define (helper current-world num-start-cells)
-    (if (= num-start-cells 0)
-        current-world
-        (helper (cons (list (random 590) (random 390)) current-world)
-                (- num-start-cells 1))))
-  (world (helper '() num-start-cells)))
+(define width 1200)
+(define height 800)
 
-(define (draw-cell dc x y) (draw-pict (rectangle 2 2) dc x y))
+(define (init-world num-start-cells)
+  (for/set ((i (in-range num-start-cells)))
+    (make-living-cell (random (- (/ width  2) 10))
+                      (random (- (/ height 2) 10)))))
 
 (define (draw-world canvas dc)
   (for ([x (in-range (/ (send canvas get-width) 2))])
@@ -64,8 +62,8 @@
 (define (main)
   (let* ([frame (new frame%
           [label "Game of Life"]
-          [width 1200]
-          [height 800])]
+          [width width]
+          [height height])]
         [canvas (new canvas%
           [parent frame]
           [min-width (send frame get-width)]
