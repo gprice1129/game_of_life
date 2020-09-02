@@ -1,63 +1,79 @@
-#lang racket
+#lang racket/gui
+
+(require pict racket/draw)
 
 (define (make-living-cell i j) (list i j))
+
 (define (world living-cells) (list->mutable-set living-cells))
+
 (define (cell-x cell) (car cell))
+
 (define (cell-y cell) (cadr cell))
-(define (cell-shift cell hs vs) (list (+ (cell-x cell) hs) (+ (cell-y cell) vs)))
-(define (cell-t cell) (cell-shift cell 0 1))
-(define (cell-tl cell) (cell-shift cell -1 1))
-(define (cell-tr cell) (cell-shift cell 1 1))
-(define (cell-b cell) (cell-shift cell 0 -1))
-(define (cell-bl cell) (cell-shift cell -1 -1))
-(define (cell-br cell) (cell-shift cell 1 -1))
-(define (cell-r cell) (cell-shift cell 1 0))
-(define (cell-l cell) (cell-shift cell -1 0))
+
+(define (cell-shift cell shift) (list (+ (cell-x cell) (car shift)) 
+                                      (+ (cell-y cell) (cadr shift))))
 (define (empty? world cell) (not (set-member? world cell)))
+
 (define (cells-surrounding cell)
-  (list (cell-t cell) (cell-tl cell) (cell-tr cell) (cell-b cell)
-        (cell-bl cell) (cell-br cell) (cell-r cell) (cell-l cell)))
+  (let ([directions '(0 1 -1)])
+    (map (lambda (s) (cell-shift cell s))
+         (cartesian-product directions directions))))
+
 (define (alive? world cell)
-  (let* ([num-cells (foldl + 0 (map (lambda (c) (if (empty? world c) 0 1))
-                                    (cells-surrounding cell)))]
-         [is-three? (= num-cells 3)])
-    (or is-three?
+  (let ([num-cells (foldl + 0 (map (lambda (c) (if (empty? world c) 0 1))
+                                   (cdr (cells-surrounding cell))))])
+    (or (= num-cells 3)
         (and (not (empty? world cell)) (= num-cells 2)))))
 
-(define (update-world old-world)
-  (let ([new-world (world '())]
-        [empty-cells (list->mutable-set '())])
-    (for ([c (set->list old-world)])
-      (cond [(alive? old-world c) (set-add! new-world c)])
-      (for ([e (filter (lambda (c) (empty? old-world c))
-                       (cells-surrounding c))])
-        (set-add! empty-cells e)))
-    (for ([e (set->list empty-cells)])
-      (cond [(alive? old-world e) (set-add! new-world e)]))
-    new-world))
+(define (update old-world)
+  (define (update-from remaining-world new-world)
+    (if (null? remaining-world)
+        new-world
+        (update-from (cdr remaining-world) 
+                     (update-new-world (cells-surrounding (car remaining-world)) 
+                                       new-world))))
+  (define (update-new-world cells new-world)
+    (cond [(null? cells) new-world]
+          [(alive? old-world (car cells))
+              (update-new-world (cdr cells) (cons (car cells) new-world))]
+          [else (update-new-world (cdr cells) new-world)]))
+  (world (update-from (set->list old-world) '())))
 
-(define (draw-world row-start row-end col-start col-end world)
-  (for ([r (in-range row-start row-end)])
-    (display "\n")
-    (for ([c (in-range col-start col-end)])
-      (if (empty? world (list r c))
-          (display " ")
-          (display "X"))))
-  (display "\n------------------------------------------------------------\n"))
+(define (init-world num-start-cells)
+  (define (helper current-world num-start-cells)
+    (if (= num-start-cells 0)
+        current-world
+        (helper (cons (list (random 590) (random 390)) current-world)
+                (- num-start-cells 1))))
+  (world (helper '() num-start-cells)))
 
-(define (draw world) (draw-world -100 100 -100 100 world))
+(define (draw-cell dc x y) (draw-pict (rectangle 2 2) dc x y))
 
-(define (gol-helper world iterations)
-  (draw world)
-  (sleep 2)
-  (if (= iterations 0)
-      (display "Done!\n")
-      (gol-helper (update-world world) (- iterations 1))))
+(define (draw-world canvas dc)
+  (for ([x (in-range (/ (send canvas get-width) 2))])
+    (for ([y (in-range (/ (send canvas get-height) 2))])
+      (cond [(not (empty? my-world (list x y))) (draw-cell dc (* x 2) (* y 2))]))))
 
-(define (gol)
-  (let ([my-world (world '())])
-    (for ([_ (in-range 0 4000)])
-      (set-add! my-world (list (random -80 80) (random -80 80))))
-    (gol-helper my-world 10000)))
-      
-(gol)    
+(define (game-of-life canvas)
+  (for ([_ (in-naturals)])
+    (send canvas refresh-now (lambda (dc) (draw-world canvas dc)))
+    (set! my-world (update my-world))))
+
+(define my-world (init-world 20000))
+
+(define (main) 
+  (let* ([frame (new frame% 
+          [label "Game of Life"]
+          [width 1200]
+          [height 800])]
+        [canvas (new canvas%
+          [parent frame]
+          [min-width (send frame get-width)]
+          [min-height (send frame get-height)]
+          [stretchable-width #f]
+          [stretchable-height #f]
+          [paint-callback draw-world])])
+    (send frame show #t)
+    (game-of-life canvas)))
+
+(main)
