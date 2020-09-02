@@ -19,25 +19,43 @@
     (map (lambda (s) (cell-shift cell s))
          (cartesian-product directions directions))))
 
-(define (alive? world cell)
-  (let ([num-cells (foldl + 0 (map (lambda (c) (if (empty? world c) 0 1))
-                                   (cdr (cells-surrounding cell))))])
-    (or (= num-cells 3)
-        (and (not (empty? world cell)) (= num-cells 2)))))
+;; Old update that is about 50% slower
+;(define (alive? world cell)
+  ;(let ([num-cells (foldl + 0 (map (lambda (c) (if (empty? world c) 0 1))
+                                   ;(cdr (cells-surrounding cell))))])
+    ;(or (= num-cells 3)
+        ;(and (not (empty? world cell)) (= num-cells 2)))))
+;(define (update old-world)
+  ;(define (update-from remaining-world new-world)
+    ;(if (null? remaining-world)
+        ;new-world
+        ;(update-from (cdr remaining-world)
+                     ;(update-new-world (cells-surrounding (car remaining-world))
+                                       ;new-world))))
+  ;(define (update-new-world cells new-world)
+    ;(cond [(null? cells) new-world]
+          ;[(alive? old-world (car cells))
+              ;(update-new-world (cdr cells) (cons (car cells) new-world))]
+          ;[else (update-new-world (cdr cells) new-world)]))
+  ;(world (update-from (set->list old-world) '())))
 
 (define (update old-world)
-  (define (update-from remaining-world new-world)
-    (if (null? remaining-world)
-        new-world
-        (update-from (cdr remaining-world) 
-                     (update-new-world (cells-surrounding (car remaining-world)) 
-                                       new-world))))
-  (define (update-new-world cells new-world)
-    (cond [(null? cells) new-world]
-          [(alive? old-world (car cells))
-              (update-new-world (cdr cells) (cons (car cells) new-world))]
-          [else (update-new-world (cdr cells) new-world)]))
-  (world (update-from (set->list old-world) '())))
+  (for/fold
+    ((living (set)) (zombies (set))
+     #:result (for/fold
+                ((living living))
+                ((cell (in-set zombies)))
+                (if (= 3 (for/sum
+                           ((n (in-list (cdr (cells-surrounding cell)))))
+                           (if (set-member? old-world n) 1 0)))
+                  (set-add living cell)
+                  living)))
+    ((cell (in-set old-world)))
+    (define-values (alive dead)
+      (partition (lambda (n) (set-member? old-world n))
+                 (cdr (cells-surrounding cell))))
+    (values (if (<= 2 (length alive) 3) (set-add living cell) living)
+            (set-union zombies (list->set dead)))))
 
 (define width 1200)
 (define height 800)
