@@ -1,6 +1,6 @@
 #lang racket/gui
 
-(require pict racket/draw)
+(require pict racket/draw profile)
 
 (define (make-living-cell i j) (list i j))
 
@@ -47,15 +47,40 @@
     (make-living-cell (random (- (/ width  2) 10))
                       (random (- (/ height 2) 10)))))
 
+;(define (draw-cell dc x y) (draw-pict (rectangle 2 2) dc x y))
+(define (draw-cell dc x y) (send dc set-argb-pixels x y 2 2
+                                 (bytes 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
 (define (draw-world canvas dc)
   (for ([x (in-range (/ (send canvas get-width) 2))])
     (for ([y (in-range (/ (send canvas get-height) 2))])
-      (cond [(not (empty? my-world (list x y))) (draw-cell dc (* x 2) (* y 2))]))))
+      (cond [(not (empty? my-world (list x y)))
+             (draw-cell dc (+ x x) (+ y y))]))))
+;; A more complex alternative that may give a tiny performance improvement
+;(define (draw-world canvas dc)
+  ;(define height (send canvas get-height))
+  ;(define width  (send canvas get-width))
+  ;(define pitch  (* width 4))
+  ;(define bs     (make-bytes (* width height 4) 255))
+  ;(for ([y (in-range (/ height 2))])
+    ;(define y-offset (* y pitch 2))
+    ;(for ([x (in-range (/ width 2))])
+      ;(unless (empty? my-world (list x y))
+        ;(define offset (+ y-offset (* x 4 2)))
+        ;(bytes-copy! bs    offset        (bytes 0 0 0 0 0 0 0 0))
+        ;(bytes-copy! bs (+ offset pitch) (bytes 0 0 0 0 0 0 0 0)))))
+  ;(send dc set-argb-pixels 0 0 width height bs))
 
 (define (game-of-life canvas)
+  (define bm (make-object bitmap% width height))
+  (define bdc (new bitmap-dc% (bitmap bm)))
+  (define dc (send canvas get-dc))
   (for ([_ (in-naturals)])
-    (send canvas refresh-now (lambda (dc) (draw-world canvas dc)))
-    (set! my-world (update my-world))))
+    (time (send bdc clear)
+          (draw-world canvas bdc)
+          (send dc draw-bitmap bm 0 0)
+          (send dc flush)
+          ;(send canvas refresh-now (lambda (dc) (draw-world canvas dc)))
+          (set! my-world (update my-world)))))
 
 (define my-world (init-world 20000))
 
@@ -70,8 +95,13 @@
           [min-height (send frame get-height)]
           [stretchable-width #f]
           [stretchable-height #f]
-          [paint-callback draw-world])])
+          [paint-callback
+            ;draw-world
+            (lambda _ (void))
+            ])])
+
     (send frame show #t)
     (game-of-life canvas)))
 
+;(profile (main))
 (main)
