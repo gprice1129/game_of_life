@@ -10,7 +10,7 @@
 
 (define (cell-y cell) (cadr cell))
 
-(define (cell-shift cell shift) (list (+ (cell-x cell) (car shift)) 
+(define (cell-shift cell shift) (list (+ (cell-x cell) (car shift))
                                       (+ (cell-y cell) (cadr shift))))
 (define (empty? world cell) (not (set-member? world cell)))
 
@@ -61,8 +61,8 @@
 
 (define my-world (init-world 20000))
 
-(define (main) 
-  (let* ([frame (new frame% 
+(define (main)
+  (let* ([frame (new frame%
           [label "Game of Life"]
           [width 1200]
           [height 800])]
