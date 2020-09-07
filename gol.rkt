@@ -1,6 +1,6 @@
 #lang racket/gui
 
-(require pict racket/draw profile)
+(require pict racket/draw profile "krikkit/widget_maker.rkt")
 
 (define (make-living-cell i j) (list i j))
 
@@ -57,10 +57,7 @@
     (values (if (<= 2 (length alive) 3) (set-add living cell) living)
             (set-union zombies (list->set dead)))))
 
-(define width 1200)
-(define height 800)
-
-(define (init-world num-start-cells)
+(define (init-world num-start-cells width height)
   (for/set ((i (in-range num-start-cells)))
     (make-living-cell (random (- (/ width  2) 10))
                       (random (- (/ height 2) 10)))))
@@ -68,10 +65,9 @@
 ;(define (draw-cell dc x y) (draw-pict (rectangle 2 2) dc x y))
 (define (draw-cell dc x y) (send dc set-argb-pixels x y 2 2
                                  (bytes 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
-(define (draw-world canvas dc)
-  (define max-width  (send canvas get-width))
-  (define max-height (send canvas get-height))
-  (for ((c my-world))
+(define (draw-world world dc max-width max-height)
+  (send dc clear)
+  (for ((c world))
     (match-define `(,cx ,cy) c)
     (define x (+ cx cx))
     (define y (+ cy cy))
@@ -92,38 +88,24 @@
         ;(bytes-copy! bs (+ offset pitch) (bytes 0 0 0 0 0 0 0 0)))))
   ;(send dc set-argb-pixels 0 0 width height bs))
 
-(define (game-of-life canvas)
+(define (game-of-life)
+  (define width 1200)
+  (define height 800)
+  (define starting-cells 20000)
+  (define (do-nothing event) void)
+  (define window ((widget-maker do-nothing do-nothing)))
   (define bm (make-object bitmap% width height))
   (define bdc (new bitmap-dc% (bitmap bm)))
-  (define dc (send canvas get-dc))
-  (for ([_ (in-naturals)])
-    (time (send bdc clear)
-          (draw-world canvas bdc)
-          (send dc draw-bitmap bm 0 0)
-          (send dc flush)
-          ;(send canvas refresh-now (lambda (dc) (draw-world canvas dc)))
-          (set! my-world (update my-world)))))
-
-(define my-world (init-world 20000))
-
-(define (main)
-  (let* ([frame (new frame%
-          [label "Game of Life"]
-          [width width]
-          [height height])]
-        [canvas (new canvas%
-          [parent frame]
-          [min-width (send frame get-width)]
-          [min-height (send frame get-height)]
-          [stretchable-width #f]
-          [stretchable-height #f]
-          [paint-callback
-            ;draw-world
-            (lambda _ (void))
-            ])])
-
-    (send frame show #t)
-    (game-of-life canvas)))
+  (define my-world (init-world starting-cells width height))
+  (window 'set-title! "Game of Life")
+  (window 'resize width height)
+  (window 'show)
+  (void (thread (lambda ()
+          (let loop()
+            (draw-world my-world bdc width height)
+            (window 'paint (lambda (dc) (send dc draw-bitmap bm 0 0)))
+            (set! my-world (update my-world))
+            (loop))))))
 
 ;(profile (main))
-(main)
+(game-of-life)
