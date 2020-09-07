@@ -69,10 +69,14 @@
 (define (draw-cell dc x y) (send dc set-argb-pixels x y 2 2
                                  (bytes 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)))
 (define (draw-world canvas dc)
-  (for ([x (in-range (/ (send canvas get-width) 2))])
-    (for ([y (in-range (/ (send canvas get-height) 2))])
-      (cond [(not (empty? my-world (list x y)))
-             (draw-cell dc (+ x x) (+ y y))]))))
+  (define max-width  (send canvas get-width))
+  (define max-height (send canvas get-height))
+  (for ((c my-world))
+    (match-define `(,cx ,cy) c)
+    (define x (+ cx cx))
+    (define y (+ cy cy))
+    (when (and (< -1 x max-width) (< -1 y max-height))
+      (draw-cell dc x y))))
 ;; A more complex alternative that may give a tiny performance improvement
 ;(define (draw-world canvas dc)
   ;(define height (send canvas get-height))
