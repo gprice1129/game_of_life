@@ -1,0 +1,3 @@
+[submodule "krikkit"]
+	path = krikkit
+	url = https://github.com/gprice1129/krikkit.git
