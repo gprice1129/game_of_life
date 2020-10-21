@@ -19,6 +19,67 @@
     (map (lambda (s) (cell-shift cell s))
          (cartesian-product directions directions))))
 
+(define (make-zone size) (cons size (make-bytes (* size size))))
+(define (get-zone-size zone) (car zone))
+(define (get-zone-data zone) (cdr zone))
+(define (get-zone-cell zone x y) 
+  (bytes-ref (get-zone-data zone) (+ (* y (get-zone-size zone) x))))
+
+(define (set-zone-cell! zone x y v)
+  (bytes-set! (get-zone-data zone) (+ (* y (get-zone-size zone)) x) v))
+
+(define (make-world living-cells zone-size)
+  (define world (make-hash))
+  (for ((cell living-cells)) 
+    (match (wc=>zc cell zone-size)
+      ((list zkey x-offset y-offset)
+       (unless (world-has-zone? world zkey) (world-set-zone! world zkey (make-zone zone-size)))
+       (set-zone-cell! (world-zone-ref world zkey) x-offset y-offset 1))))
+  world)
+
+(define (world-has-zone? world zkey)
+  (hash-has-key? world zkey))
+
+(define (world-zone-ref world zkey)
+  (hash-ref world zkey))
+
+(define (world-set-zone! world zkey zone)
+  (hash-set! world zkey zone))
+
+(define (wc=>zc cell zone-size) 
+  (define-values (x x-offset) (quotient/remainder (cell-x cell) zone-size))
+  (define-values (y y-offset) (quotient/remainder (cell-y cell) zone-size))
+  `((,x ,y) ,x-offset ,y-offset))
+
+(module+ test
+  (require rackunit)
+  (check-true
+    (equal? (wc=>zc '(1 2) 4) '((0 0) 1 2)))
+  (check-true
+    (equal? (wc=>zc '(3 4) 2) '((1 2) 1 0)))
+  (check-true
+    (equal? (make-world '() 4) (make-hash '())))
+  (check-true
+    (equal? (make-world '((1 2)) 4)
+            (make-hash `(((0 0) . (4  . ,(bytes 0 0 0 0
+                                                0 0 0 0
+                                                0 1 0 0
+                                                0 0 0 0)))))))
+  (check-true
+    (equal? (make-world '((1 2) (0 1)) 2)
+            (make-hash `(((0 0) . (2 . ,(bytes 0 0
+                                               1 0)))
+                         ((0 1) . (2 . ,(bytes 0 1 
+                                               0 0))))))))
+; world is hashmap of zones
+;   cell-coordinates (x, y)
+;   zone-coordinates (flr(x/N), flr(y/N), mod(x/N), mod(y/N))
+;   world-coordinates=>zone-coordinates
+
+; zone
+;   N x N byte string
+
+
 ;; Old update that is about 50% slower
 ;(define (alive? world cell)
   ;(let ([num-cells (foldl + 0 (map (lambda (c) (if (empty? world c) 0 1))
@@ -108,4 +169,6 @@
             (loop))))))
 
 ;(profile (main))
-(game-of-life)
+
+(module+ main
+  (game-of-life))
