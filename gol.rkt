@@ -1,6 +1,6 @@
 #lang racket/gui
 
-(require pict racket/draw profile "krikkit/widget_maker.rkt")
+(require pict racket/draw profile "krikkit/windows.rkt")
 
 (define (make-living-cell i j) (list i j))
 
@@ -150,21 +150,19 @@
   ;(send dc set-argb-pixels 0 0 width height bs))
 
 (define (game-of-life)
-  (define width 1200)
-  (define height 800)
+  (define width 400)
+  (define height 600)
   (define starting-cells 20000)
   (define (do-nothing event) void)
-  (define window ((widget-maker do-nothing do-nothing)))
-  (define bm (make-object bitmap% width height))
-  (define bdc (new bitmap-dc% (bitmap bm)))
+  (define w (window do-nothing do-nothing width height))
   (define my-world (init-world starting-cells width height))
-  (window 'set-title! "Game of Life")
-  (window 'resize width height)
-  (window 'show)
+  (w 'set-title! "Game of Life")
+  (w 'show)
+  (w 'set-background 128 128 128)
   (void (thread (lambda ()
-          (let loop()
-            (draw-world my-world bdc width height)
-            (window 'paint (lambda (dc) (send dc draw-bitmap bm 0 0)))
+          (let loop ()
+            (w 'render (lambda (dc) (draw-world my-world dc width height)))
+            (sleep 0.1)
             (set! my-world (update my-world))
             (loop))))))
 
